@@ -9,6 +9,12 @@ export const STATUS_HEX: Record<StatusColor, string> = {
   purple: "#8250df"
 }
 
+const statusOpacity = (color: StatusColor): number =>
+  color === "grey" ? 0.5 : 1
+
+const svgFillOpacity = (color: StatusColor): string =>
+  color === "grey" ? ' fill-opacity="0.5"' : ""
+
 /**
  * Shared geometry for both renderers so the SVG legend can never drift from the
  * real (canvas) favicon: a rounded square split into two halves with a thin
@@ -70,15 +76,20 @@ export function drawFavicon(
   if (spec.whole) {
     // Single solid square (lifecycle state) — no gap, no "+".
     ctx.fillStyle = STATUS_HEX[spec.left]
+    ctx.globalAlpha = statusOpacity(spec.left)
     ctx.fillRect(0, 0, size, size)
+    ctx.globalAlpha = 1
     if (opts.unread) drawDot(ctx, g)
     return canvas.toDataURL("image/png")
   }
 
   ctx.fillStyle = STATUS_HEX[spec.left]
+  ctx.globalAlpha = statusOpacity(spec.left)
   ctx.fillRect(0, 0, g.leftWidth, size)
   ctx.fillStyle = STATUS_HEX[spec.right]
+  ctx.globalAlpha = statusOpacity(spec.right)
   ctx.fillRect(g.rightX, 0, g.rightWidth, size)
+  ctx.globalAlpha = 1
 
   if (spec.plus) {
     const p = g.plus
@@ -122,11 +133,11 @@ export function faviconSvg(
   let body: string
   let plus = ""
   if (spec.whole) {
-    body = `<rect width="${size}" height="${size}" fill="${STATUS_HEX[spec.left]}"/>`
+    body = `<rect width="${size}" height="${size}" fill="${STATUS_HEX[spec.left]}"${svgFillOpacity(spec.left)}/>`
   } else {
     body =
-      `<rect width="${g.leftWidth}" height="${size}" fill="${STATUS_HEX[spec.left]}"/>` +
-      `<rect x="${g.rightX}" width="${g.rightWidth}" height="${size}" fill="${STATUS_HEX[spec.right]}"/>`
+      `<rect width="${g.leftWidth}" height="${size}" fill="${STATUS_HEX[spec.left]}"${svgFillOpacity(spec.left)}/>` +
+      `<rect x="${g.rightX}" width="${g.rightWidth}" height="${size}" fill="${STATUS_HEX[spec.right]}"${svgFillOpacity(spec.right)}/>`
     if (spec.plus) {
       const p = g.plus
       plus =

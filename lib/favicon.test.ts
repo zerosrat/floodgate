@@ -41,3 +41,25 @@ describe("faviconSvg unread dot", () => {
     expect(svg.match(/<rect /g)?.length ?? 0).toBeGreaterThanOrEqual(4)
   })
 })
+
+describe("faviconSvg status opacity", () => {
+  it("applies 50% opacity only to a grey half", () => {
+    const svg = faviconSvg({ left: "grey", right: "green" })
+
+    expect(svg).toContain('fill="#8c959f" fill-opacity="0.5"')
+    expect(svg).toContain('fill="#2da44e"/>')
+    expect(svg.match(/fill-opacity="0.5"/g)).toHaveLength(1)
+  })
+
+  it("applies 50% opacity to each grey region independently", () => {
+    const splitSvg = faviconSvg({ left: "green", right: "grey" })
+    const wholeSvg = faviconSvg({
+      left: "grey",
+      right: "grey",
+      whole: true
+    })
+
+    expect(splitSvg.match(/fill-opacity="0.5"/g)).toHaveLength(1)
+    expect(wholeSvg.match(/fill-opacity="0.5"/g)).toHaveLength(1)
+  })
+})
