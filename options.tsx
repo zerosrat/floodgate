@@ -10,7 +10,10 @@ import {
 import { faviconSvg, STATUS_HEX } from "~lib/favicon"
 import { validateToken } from "~lib/github-api"
 import { prUrl, refKey, type PrRef } from "~lib/github-pr"
-import type { AddWatchedRepoResponse } from "~lib/messages"
+import type {
+  AddWatchedRepoResponse,
+  SetWatchedRepoScopeResponse
+} from "~lib/messages"
 import {
   toFaviconSpec,
   type CheckState,
@@ -28,6 +31,7 @@ import {
   TOKEN_KEY
 } from "~lib/settings"
 import {
+  isOnlyMine,
   LAST_FETCHED_KEY,
   parseOwnerRepo,
   WATCHED_KEY,
@@ -459,6 +463,14 @@ const ADD_ERROR_MSG: Record<string, string> = {
   "rate-limit": "GitHub rate limit reached — try again in a minute."
 }
 
+const SCOPE_ERROR_MSG: Record<string, string> = {
+  "not-watched": "That repo is no longer on the list.",
+  "no-token": "Save a GitHub token first.",
+  "no-access": "Couldn’t access that repo — check your token’s access.",
+  network: "Couldn’t reach GitHub — check your connection.",
+  "rate-limit": "GitHub rate limit reached — try again in a minute."
+}
+
 /**
  * Freshness line for the watched poll. Reads the session-scoped last-poll stamp,
  * updates live as polls land, and re-renders every 30s so the relative label
@@ -511,7 +523,10 @@ function WatchedRepos() {
   const [repos, setRepos] = useState<WatchedRepo[]>([])
   const [hasToken, setHasToken] = useState(false)
   const [input, setInput] = useState("")
+  const [onlyMine, setOnlyMine] = useState(false)
   const [adding, setAdding] = useState(false)
+  /** `owner/repo` whose scope toggle is waiting on the background, if any. */
+  const [scoping, setScoping] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -560,7 +575,8 @@ function WatchedRepos() {
       .sendMessage({
         type: "addWatchedRepo",
         owner: parsed.owner,
-        repo: parsed.repo
+        repo: parsed.repo,
+        onlyMine
       })
       .catch(() => undefined)) as AddWatchedRepoResponse | undefined
     setAdding(false)
@@ -571,6 +587,30 @@ function WatchedRepos() {
       return
     }
     setInput("")
+  }
+
+  /**
+   * Flip one repo between every author and only yours. The checkbox renders from
+   * stored state, never from a local optimistic copy, so a rejected change (no
+   * token, repo gone, GitHub unreachable) simply leaves it where it was and the
+   * reason appears in the section's error line.
+   */
+  const setScope = async (r: WatchedRepo, next: boolean) => {
+    const key = `${r.owner}/${r.repo}`
+    setScoping(key)
+    setError(null)
+    const res = (await chrome.runtime
+      .sendMessage({
+        type: "setWatchedRepoScope",
+        owner: r.owner,
+        repo: r.repo,
+        onlyMine: next
+      })
+      .catch(() => undefined)) as SetWatchedRepoScopeResponse | undefined
+    setScoping(null)
+    if (res && res.ok === false) {
+      setError(SCOPE_ERROR_MSG[res.error] ?? "Couldn’t change that repo.")
+    }
   }
 
   const remove = (r: WatchedRepo) => {
@@ -589,7 +629,9 @@ function WatchedRepos() {
       <p style={{ marginTop: 0, color: "#57606a", fontSize: 13 }}>
         New PRs opened after you add a repo open automatically as inactive tabs
         (pinned only if auto-pin is on, below). Renovate and draft PRs are
-        skipped.
+        skipped. Set a repo to <em>only mine</em> to narrow it to the PRs you
+        opened — what you want on a busy repo, where everyone else’s new PRs
+        would otherwise fill the window.
       </p>
 
       <LastFetched />
@@ -631,6 +673,26 @@ function WatchedRepos() {
           {adding ? "Adding…" : "Watch"}
         </HoverButton>
       </div>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          margin: "8px 0 0",
+          fontSize: 13,
+          color: hasToken ? "#57606a" : "#8c959f",
+          cursor: hasToken ? "pointer" : "default"
+        }}>
+        <input
+          type="checkbox"
+          checked={onlyMine}
+          disabled={!hasToken || adding}
+          onChange={(e) => setOnlyMine(e.target.checked)}
+          style={{ flex: "none" }}
+        />
+        Watch only the pull requests I opened
+      </label>
 
       {!hasToken && (
         <p
@@ -683,6 +745,30 @@ function WatchedRepos() {
                   }}>
                   {key}
                 </a>
+                <label
+                  title={
+                    "Only auto-open pull requests you opened in this repo. " +
+                    "Changing this re-baselines the repo, so only PRs opened " +
+                    "from now on count as new."
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    fontSize: 12,
+                    color: "#57606a",
+                    cursor: hasToken && scoping == null ? "pointer" : "default",
+                    opacity: scoping === key ? 0.5 : 1
+                  }}>
+                  <input
+                    type="checkbox"
+                    checked={isOnlyMine(r.onlyMine)}
+                    disabled={!hasToken || scoping != null}
+                    onChange={(e) => void setScope(r, e.target.checked)}
+                    style={{ flex: "none", margin: 0 }}
+                  />
+                  only mine
+                </label>
                 <HoverButton
                   onClick={() => remove(r)}
                   style={{
