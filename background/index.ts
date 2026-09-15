@@ -714,7 +714,7 @@ chrome.runtime.onMessage.addListener(
           return true // async response
         })
         .with({ type: "addWatchedRepo" }, (m) => {
-          handleAddWatchedRepo(m.owner, m.repo, m.onlyMine === true)
+          handleAddWatchedRepo(m.owner, m.repo)
             .then(sendResponse)
             .catch(() => sendResponse({ ok: false, error: "network" }))
           return true // async response
@@ -796,8 +796,7 @@ function persistWatched(): void {
 
 async function handleAddWatchedRepo(
   owner: string,
-  repo: string,
-  onlyMine: boolean
+  repo: string
 ): Promise<AddWatchedRepoResponse> {
   const parsed = parseOwnerRepo(`${owner}/${repo}`)
   if (!parsed) return { ok: false, error: "invalid" }
@@ -822,9 +821,12 @@ async function handleAddWatchedRepo(
     repo: parsed.repo,
     watermark: highestNumber(result.prs),
     handled: [],
-    // Written only when on, so the stored shape of an every-author watch is
-    // byte-identical to one added before this option existed.
-    ...(onlyMine ? { onlyMine: true } : {})
+    // A new watch starts narrowed: the flood is the pain this feature exists
+    // for, so watching every author is the thing you opt into (untick "only
+    // mine" on the row), not the thing you have to notice and opt out of.
+    // Repos already on the list keep whatever they have — an absent value still
+    // means every author, so there is nothing to migrate.
+    onlyMine: true
   })
   persistWatched()
   // The add-time list query above IS a fetch — stamp it so Options shows

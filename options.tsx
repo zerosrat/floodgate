@@ -523,7 +523,6 @@ function WatchedRepos() {
   const [repos, setRepos] = useState<WatchedRepo[]>([])
   const [hasToken, setHasToken] = useState(false)
   const [input, setInput] = useState("")
-  const [onlyMine, setOnlyMine] = useState(false)
   const [adding, setAdding] = useState(false)
   /** `owner/repo` whose scope toggle is waiting on the background, if any. */
   const [scoping, setScoping] = useState<string | null>(null)
@@ -575,8 +574,7 @@ function WatchedRepos() {
       .sendMessage({
         type: "addWatchedRepo",
         owner: parsed.owner,
-        repo: parsed.repo,
-        onlyMine
+        repo: parsed.repo
       })
       .catch(() => undefined)) as AddWatchedRepoResponse | undefined
     setAdding(false)
@@ -629,9 +627,9 @@ function WatchedRepos() {
       <p style={{ marginTop: 0, color: "#57606a", fontSize: 13 }}>
         New PRs opened after you add a repo open automatically as inactive tabs
         (pinned only if auto-pin is on, below). Renovate and draft PRs are
-        skipped. Set a repo to <em>only mine</em> to narrow it to the PRs you
-        opened — what you want on a busy repo, where everyone else’s new PRs
-        would otherwise fill the window.
+        skipped. A repo you add starts on <em>only mine</em> — just the PRs you
+        opened. Untick it to watch every author’s, which on a busy repo means
+        everyone else’s new PRs fill your window too.
       </p>
 
       <LastFetched />
@@ -673,26 +671,6 @@ function WatchedRepos() {
           {adding ? "Adding…" : "Watch"}
         </HoverButton>
       </div>
-
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          margin: "8px 0 0",
-          fontSize: 13,
-          color: hasToken ? "#57606a" : "#8c959f",
-          cursor: hasToken ? "pointer" : "default"
-        }}>
-        <input
-          type="checkbox"
-          checked={onlyMine}
-          disabled={!hasToken || adding}
-          onChange={(e) => setOnlyMine(e.target.checked)}
-          style={{ flex: "none" }}
-        />
-        Watch only the pull requests I opened
-      </label>
 
       {!hasToken && (
         <p
@@ -747,9 +725,9 @@ function WatchedRepos() {
                 </a>
                 <label
                   title={
-                    "Only auto-open pull requests you opened in this repo. " +
-                    "Changing this re-baselines the repo, so only PRs opened " +
-                    "from now on count as new."
+                    "On: only auto-open pull requests you opened in this repo. " +
+                    "Off: every author’s. Changing this re-baselines the repo, " +
+                    "so only PRs opened from now on count as new."
                   }
                   style={{
                     display: "flex",

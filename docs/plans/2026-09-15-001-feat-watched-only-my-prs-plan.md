@@ -26,11 +26,9 @@ same sentence.
 ## Requirements Trace
 
 - R1. A watched repo can be set to open only the PRs the token's user opened.
-- R2. The setting is per repo, and can be chosen **when adding** as well as
-  changed afterwards — the watermark is set at add time, so a repo added
-  every-author starts opening strangers' PRs within the minute.
-- R3. Off is the default, and an absent value means off: an existing watch list
-  keeps its behavior with no migration.
+- R2. A repo you add starts narrowed; its row widens it to every author.
+- R3. An absent value means every author, so an existing watch list keeps its
+  behavior with no migration — only what an add writes changes.
 - R4. "Reconcile tabs" honors the setting — a repo narrowed to your PRs catches
   up on your PRs only, or the button would quietly undo the setting.
 - R5. Changing the setting cannot flood the window (see Key Decisions).
@@ -84,9 +82,19 @@ and on failure nothing is written — the Options checkbox renders from stored
 state, so it simply stays where it was and the reason appears in the section's
 error line.
 
-**Absent means off.** `isOnlyMine` accepts only an explicit `true`. The stored
-shape of an every-author watch is byte-identical to what earlier builds wrote, so
-there is nothing to migrate and nothing to roll back.
+**Absent means every author; a new watch writes `true`.** `isOnlyMine` accepts
+only an explicit `true`, so repos already on the list are untouched and there is
+nothing to migrate. New ones start narrowed, because the flood is the pain and
+every-author is the thing worth opting into.
+
+**One control, on the row — not two.** An earlier cut also put a checkbox on the
+add form, on the theory that a repo added every-author would open strangers' PRs
+before you could reach its row. `reconcilePollAlarm` passes `periodInMinutes`
+with no `when`, so the first poll after an add is a minute out — no race a
+checkbox-click can lose, and none at all once a new repo starts narrowed. What
+the second control did buy was two near-identically worded checkboxes stacked
+together, one meaning "the next repo" and the other "this repo", both left ticked
+after an add.
 
 ## Implementation Units
 
@@ -95,15 +103,13 @@ there is nothing to migrate and nothing to roll back.
    `!onlyMine || pr.viewerDidAuthor`.
 2. **`lib/github-api.ts`** — `viewerDidAuthor` in `LIST_OPEN_PRS_QUERY`, its
    node type, and the `ListedPr` mapping.
-3. **`lib/messages.ts`** — `AddWatchedRepo.onlyMine?`; `SetWatchedRepoScope` +
-   `SetWatchedRepoScopeResponse` (the add's failure vocabulary minus the
-   add-only cases, plus `not-watched`).
-4. **`background/index.ts`** — `handleAddWatchedRepo` takes the flag and writes
-   the key only when on; `handleSetWatchedRepoScope` re-baselines and answers;
-   both `selectPrsToOpen` call sites pass `isOnlyMine(entry.onlyMine)`; dispatch
-   the new message.
-5. **`options.tsx`** — a checkbox on the add form, an "only mine" toggle per row
-   (disabled while a change is in flight), `SCOPE_ERROR_MSG`, updated copy.
+3. **`lib/messages.ts`** — `SetWatchedRepoScope` + `SetWatchedRepoScopeResponse`
+   (the add's failure vocabulary minus the add-only cases, plus `not-watched`).
+4. **`background/index.ts`** — `handleAddWatchedRepo` writes `onlyMine: true`;
+   `handleSetWatchedRepoScope` re-baselines and answers; both `selectPrsToOpen`
+   call sites pass `isOnlyMine(entry.onlyMine)`; dispatch the new message.
+5. **`options.tsx`** — an "only mine" toggle per row (disabled while a change is
+   in flight), `SCOPE_ERROR_MSG`, updated copy.
 6. **Tests** — `isOnlyMine` across the values an older build could have stored;
    `selectPrsToOpen` on/off, your-drafts-still-skipped, and that the cap is spent
    on your PRs rather than on ones it filtered out; `fetchOpenPrs` maps the new

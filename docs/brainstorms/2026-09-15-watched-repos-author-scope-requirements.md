@@ -68,12 +68,17 @@ obviously-correct one behind the expensive, arguable one.
 - **Per repo, not global.** The watch list is already per repo, and the split is
   the point: a project of your own stays every-author, a busy repo you work in
   narrows to yours. A single global switch would force the same answer on both.
-- **Off by default, and absent means off.** Repos on an existing watch list keep
-  their current behavior with no migration step, and the stored shape of an
-  every-author watch stays byte-identical to what earlier builds wrote.
-- **Settable when adding, changeable after.** Not just after: the watermark is
-  set at add time, so a repo added every-author starts opening other people's PRs
-  within the minute. The choice has to be available before the first poll.
+- **Absent means every author, so nothing migrates.** Repos already on a watch
+  list keep the behavior they have; only the value an add writes changes.
+- **A new repo starts narrowed.** The flood is the pain the feature exists for,
+  so watching every author is what you opt into, not what you have to notice and
+  opt out of. This also removes the only argument for a second control on the add
+  form: a repo added every-author would start opening strangers' PRs before you
+  could reach its row. Measured rather than assumed — `reconcilePollAlarm` calls
+  `chrome.alarms.create` with `periodInMinutes` and no `when`, so the first poll
+  after an add is a full minute away, which is not a window one checkbox-click
+  can lose. Two near-identically worded checkboxes stacked together, one meaning
+  "the next repo" and the other "this repo", cost more than they bought.
 - **Review scope is out of scope.** If it is ever built, the shape above is the
   starting point: `user-review-requested:@me`, off by default, baselined at add.
 

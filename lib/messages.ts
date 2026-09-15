@@ -102,8 +102,6 @@ export type AddWatchedRepo = {
   type: "addWatchedRepo"
   owner: string
   repo: string
-  /** Watch only your own PRs. Omitted/false watches every author (the default). */
-  onlyMine?: boolean
 }
 export type RemoveWatchedRepo = {
   type: "removeWatchedRepo"
